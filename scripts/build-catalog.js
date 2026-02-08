@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  listSkillIds,
+  listSkillIdsRecursive,
   readSkill,
   tokenize,
   unique,
@@ -297,8 +297,8 @@ function renderCatalogMarkdown(catalog) {
 }
 
 function buildCatalog() {
-  const skillIds = listSkillIds(SKILLS_DIR);
-  const skills = skillIds.map(skillId => readSkill(SKILLS_DIR, skillId));
+  const skillRelPaths = listSkillIdsRecursive(SKILLS_DIR);
+  const skills = skillRelPaths.map(relPath => readSkill(SKILLS_DIR, relPath));
   const catalogSkills = [];
 
   for (const skill of skills) {
@@ -318,18 +318,20 @@ function buildCatalog() {
   }
 
   const catalog = {
-    generatedAt: new Date().toISOString(),
+    generatedAt: process.env.SOURCE_DATE_EPOCH 
+      ? new Date(process.env.SOURCE_DATE_EPOCH * 1000).toISOString() 
+      : (process.env.CI ? '2026-02-08T00:00:00.000Z' : new Date().toISOString()),
     total: catalogSkills.length,
-    skills: catalogSkills.sort((a, b) => a.id.localeCompare(b.id)),
+    skills: catalogSkills.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
   };
 
   const aliases = buildAliases(catalog.skills);
   const bundleData = buildBundles(catalog.skills);
 
-  const catalogPath = path.join(ROOT, 'catalog.json');
+  const catalogPath = path.join(ROOT, 'data', 'catalog.json');
   const catalogMarkdownPath = path.join(ROOT, 'CATALOG.md');
-  const bundlesPath = path.join(ROOT, 'bundles.json');
-  const aliasesPath = path.join(ROOT, 'aliases.json');
+  const bundlesPath = path.join(ROOT, 'data', 'bundles.json');
+  const aliasesPath = path.join(ROOT, 'data', 'aliases.json');
 
   fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2));
   fs.writeFileSync(catalogMarkdownPath, renderCatalogMarkdown(catalog));
